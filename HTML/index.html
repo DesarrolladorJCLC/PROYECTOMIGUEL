@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mapa de Proyectos - Novatrónica</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; }
+    header {
+      background: #0d1b2a;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+    }
+    #map {
+      height: 90vh;
+      width: 100%;
+    }
+    .leaflet-popup img {
+      max-width: 200px;
+      margin: 5px 0;
+      border-radius: 6px;
+    }
+    #addProjectBtn {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      background: #0077b6;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0px 3px 6px rgba(0,0,0,0.2);
+    }
+    #formModal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0px 4px 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+      width: 300px;
+    }
+    #formModal input, #formModal textarea {
+      width: 100%;
+      margin: 5px 0;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    #formModal button {
+      margin-top: 10px;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #saveBtn { background: #0077b6; color: white; }
+    #cancelBtn { background: #aaa; color: white; }
+    #overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Mapa de Proyectos - Novatrónica</h1>
+    <p>Energía que impulsa a Colombia</p>
+  </header>
+
+  <div id="map"></div>
+  <button id="addProjectBtn">+ Añadir Proyecto</button>
+
+  <!-- Overlay -->
+  <div id="overlay"></div>
+
+  <!-- Modal Formulario -->
+  <div id="formModal">
+    <h3>Nuevo Proyecto</h3>
+    <input type="text" id="name" placeholder="Nombre del proyecto">
+    <input type="text" id="power" placeholder="Potencia del equipo (ej: 50kW)">
+    <input type="text" id="location" placeholder="Ubicación">
+    <input type="file" id="photos" multiple accept="image/*">
+    <button id="saveBtn">Guardar</button>
+    <button id="cancelBtn">Cancelar</button>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Inicializar mapa
+    let map = L.map('map').setView([4.5709, -74.2973], 6); // Colombia centrado
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18
+    }).addTo(map);
+
+    let projects = JSON.parse(localStorage.getItem("projects")) || [];
+    let tempCoords = null;
+
+    function renderProjects() {
+      projects.forEach(p => {
+        let popupContent = "<b>" + p.name + "</b><br>" +
+                           "Potencia: " + p.power + "<br>" +
+                           "Ubicación: " + p.location + "<br>";
+        if(p.photos){
+          p.photos.forEach(src => {
+            popupContent += "<img src='" + src + "'>";
+          });
+        }
+        L.marker(p.coords).addTo(map).bindPopup(popupContent);
+      });
+    }
+    renderProjects();
+
+    // Botón añadir proyecto
+    document.getElementById("addProjectBtn").addEventListener("click", () => {
+      alert("Haz clic en el mapa donde quieres ubicar el proyecto.");
+      map.once("click", function(e) {
+        tempCoords = [e.latlng.lat, e.latlng.lng];
+        document.getElementById("overlay").style.display = "block";
+        document.getElementById("formModal").style.display = "block";
+      });
+    });
+
+    // Guardar proyecto
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      let name = document.getElementById("name").value;
+      let power = document.getElementById("power").value;
+      let location = document.getElementById("location").value;
+      let photosInput = document.getElementById("photos").files;
+
+      let photos = [];
+      for(let file of photosInput){
+        let reader = new FileReader();
+        reader.onload = function(e){
+          photos.push(e.target.result);
+
+          if(photos.length === photosInput.length){
+            saveProject(name, power, location, tempCoords, photos);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+
+      if(photosInput.length === 0){
+        saveProject(name, power, location, tempCoords, photos);
+      }
+    });
+
+    function saveProject(name, power, location, coords, photos){
+      let project = { name, power, location, coords, photos };
+      projects.push(project);
+      localStorage.setItem("projects", JSON.stringify(projects));
+      location.reload();
+    }
+
+    // Cancelar
+    document.getElementById("cancelBtn").addEventListener("click", closeForm);
+    document.getElementById("overlay").addEventListener("click", closeForm);
+
+    function closeForm(){
+      document.getElementById("formModal").style.display = "none";
+      document.getElementById("overlay").style.display = "none";
+    }
+  </script>
+</body>
+</html>
